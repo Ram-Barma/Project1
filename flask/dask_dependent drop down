@@ -1,0 +1,177 @@
+    
+import dash
+from dash.dependencies import Input, Output
+import dash_core_components as dcc
+import dash_html_components as html
+import pyodbc
+cnxn = pyodbc.connect(r'Driver={SQL Server};Server=VG00-2001;Database=Panel;Trusted_Connection=yes;')
+import pandas as pd
+import numpy as np
+    
+
+
+
+app = dash.Dash(__name__)
+
+app.css.config.serve_locally = False
+
+
+app.css.append_css({'external_url': 'https://cdn.rawgit.com/plotly/dash-app-stylesheets/2d266c578d2a6e8850ebce48fdb52759b2aef506/stylesheet-oil-and-gas.css'})
+
+
+query = 'select * from [MetricFeedback].[dbo].[vDeprScreenMetricFB]'
+cursor = cnxn.cursor()
+resultValue = cursor.execute(query)
+pat_details = cursor.fetchall()
+x=list(pat_details)
+x_tuple=[tuple(zz) for zz in x]
+df = pd.DataFrame(x_tuple,columns=[' Metric', 'UniqueID', 'MRN', 'MEDICAID_ID', 'PAT_NAME', 'AssignedClinic', 'AssignedTeam', 'AssignedPCP', 'BIRTH_DATE', 'Sex', 'Current_Outcome', 'Projected_EOY_Outcome', 'ScreeningDate', 'VG_Panel', 'CobiCCOAssignment', 'Numerator', 'Exclusion', 'PHQ', 'Score', 'LastPositivePHQ', 'AssessmentOutcome', 'Criteria', 'VisitPCP', 'VisitTeam', 'Visit_Count', 'LastVisitDate', 'VisitApptNotes', 'InLastWeek', 'NextApptDate', 'NextApptProvider', 'NextApptNotes', 'PCPAssignedDate', 'PCPAssignedWindow', 'Report_Period_Begin', 'Report_Period_End', 'SBC_Name', 'epicCCOinfo', 'COfilter', 'PCPM', 'Depression_SmartPhrase_Used', 'MUUDS_SmartPhrase_Used', 'InLastMonth'])
+depr_clinic_outcome=df.groupby(['Current_Outcome'])['MRN'].count().reset_index()
+print 'depr'
+print depr_clinic_outcome
+
+query = 'select * from [MetricFeedback].[dbo].[HistoricalDataForRunCharts]'
+cursor = cnxn.cursor()
+resultValue = cursor.execute(query)
+pat_details = cursor.fetchall()
+x=list(pat_details)
+x_tuple=[tuple(zz) for zz in x]
+df = pd.DataFrame(x_tuple,columns=[ 'Metric','AssignedClinic','AssignedTeam','AssignedPCP','Met','Not Met','Excluded','Report_Period_End'])
+df_depression = df[df['Metric'] =='DepressionScreen']
+df_depression['Percent met'] = (df['Met']/(df['Met'] + df['Not Met'])) * 100
+runcharts=df_depression.groupby(['AssignedClinic','AssignedTeam',pd.Grouper(freq='1M', key='Report_Period_End')])['Percent met'].mean().reset_index()
+print runcharts[runcharts['AssignedClinic']=='VG BEAVERTON']
+
+all_options = {
+    'VG BEAVERTON': list(set(list((runcharts[runcharts['AssignedClinic']=='VG BEAVERTON']['AssignedTeam'])))),
+    'VG SCHOOL BASED': list(set(list(runcharts[runcharts['AssignedClinic']=='VG SCHOOL BASED']['AssignedTeam'])))
+}
+
+print(all_options)
+app.layout = html.Div([
+    dcc.Dropdown(
+        id='clinics-dropdown',
+        options=[{'label': k, 'value': k} for k in all_options.keys()],
+        value='VG BEAVERTON',
+        # multi=True
+    ),
+
+    html.Hr(),
+
+    dcc.RadioItems(id='teams-dropdown'),
+
+    html.Hr(),
+
+    html.Div(id='display-selected-values'),
+    
+    html.Div(
+        
+        id="top-row",
+        className='row',
+        children= [
+               html.Div([
+              
+                    dcc.Graph(
+                    id='aa',
+                     figure = {
+        'data': [
+                    {
+        
+        "x": list(depr_clinic_outcome['Current_Outcome']),
+        "y": list(depr_clinic_outcome['MRN']),
+        "type": "bar",
+        }],
+        'layout': {
+            'title': 'Overall Depression Screening performance',
+            'xaxis' : dict(
+                title='x Axis',
+                titlefont=dict(
+                family='Courier New, monospace',
+                size=20,
+                color='#7f7f7f'
+            )),
+            'yaxis' : dict(
+                title='y Axis',
+                titlefont=dict(
+                family='Helvetica, monospace',
+                size=20,
+                color='#7f7f7f'
+            ))
+        }
+    }
+                     
+                     
+                     )
+                ], className='four columns'
+                ),
+                
+             html.Div([
+              
+                    dcc.Graph(
+                    id='abc',
+                     figure = {
+        'data': [
+                    {
+        
+        "x": list(depr_clinic_outcome['Current_Outcome']),
+        "y": list(depr_clinic_outcome['MRN']),
+        "type": "bar",
+        }],
+        'layout': {
+            'title': 'Graph 1',
+            'xaxis' : dict(
+                title='x Axis',
+                titlefont=dict(
+                family='Courier New, monospace',
+                size=20,
+                color='#7f7f7f'
+            )),
+            'yaxis' : dict(
+                title='y Axis',
+                titlefont=dict(
+                family='Helvetica, monospace',
+                size=20,
+                color='#7f7f7f'
+            ))
+        }
+    }
+                     
+                     
+                     )
+                ], className='four columns'
+                ),
+                
+                ])
+])
+
+
+@app.callback(
+    dash.dependencies.Output('teams-dropdown', 'options'),
+    [dash.dependencies.Input('clinics-dropdown', 'value')])
+def set_cities_options(selected_clinic):
+    # a=[]
+    # for i in all_options[selected_clinic]:
+        # print i
+        # a.append({'label': i, 'value': i})
+    # return a
+    
+    return [{'label': i, 'value': i} for i in all_options[selected_clinic]]
+
+@app.callback(
+    dash.dependencies.Output('teams-dropdown', 'value'),
+    [dash.dependencies.Input('teams-dropdown', 'options')])
+def set_cities_value(available_options):
+    return available_options[0]['value']
+    
+@app.callback(
+    dash.dependencies.Output('display-selected-values', 'children'),
+    [dash.dependencies.Input('clinics-dropdown', 'value'),
+     dash.dependencies.Input('teams-dropdown', 'value')])
+def set_display_children(selected_clinic, selected_team):
+    return u'{} is a city in {}'.format(
+        selected_team, selected_clinic,
+    )
+
+if __name__ == '__main__':
+    app.run_server(debug=True)
+    
