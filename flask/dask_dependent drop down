@@ -1,4 +1,3 @@
-    
 import dash
 from dash.dependencies import Input, Output
 import dash_core_components as dcc
@@ -8,17 +7,16 @@ cnxn = pyodbc.connect(r'Driver={SQL Server};Server=VG00-2001;Database=Panel;Trus
 import pandas as pd
 import numpy as np
     
-
-
-
-app = dash.Dash(__name__)
-
+#app details
+app = dash.Dash(__name__, meta_tags=[{"name": "viewport", "content": "width=device-width, initial-scale=1"}],)
 app.css.config.serve_locally = False
 
-
 app.css.append_css({'external_url': 'https://cdn.rawgit.com/plotly/dash-app-stylesheets/2d266c578d2a6e8850ebce48fdb52759b2aef506/stylesheet-oil-and-gas.css'})
+# app.css.append_css({'external_url': 'https://codepen.io/amyoshino/pen/jzXypZ.css'})
+app.config.suppress_callback_exceptions = True
+# SQL query
 
-
+# overall performance
 query = 'select * from [MetricFeedback].[dbo].[vDeprScreenMetricFB]'
 cursor = cnxn.cursor()
 resultValue = cursor.execute(query)
@@ -28,7 +26,9 @@ x_tuple=[tuple(zz) for zz in x]
 df = pd.DataFrame(x_tuple,columns=[' Metric', 'UniqueID', 'MRN', 'MEDICAID_ID', 'PAT_NAME', 'AssignedClinic', 'AssignedTeam', 'AssignedPCP', 'BIRTH_DATE', 'Sex', 'Current_Outcome', 'Projected_EOY_Outcome', 'ScreeningDate', 'VG_Panel', 'CobiCCOAssignment', 'Numerator', 'Exclusion', 'PHQ', 'Score', 'LastPositivePHQ', 'AssessmentOutcome', 'Criteria', 'VisitPCP', 'VisitTeam', 'Visit_Count', 'LastVisitDate', 'VisitApptNotes', 'InLastWeek', 'NextApptDate', 'NextApptProvider', 'NextApptNotes', 'PCPAssignedDate', 'PCPAssignedWindow', 'Report_Period_Begin', 'Report_Period_End', 'SBC_Name', 'epicCCOinfo', 'COfilter', 'PCPM', 'Depression_SmartPhrase_Used', 'MUUDS_SmartPhrase_Used', 'InLastMonth'])
 depr_clinic_outcome=df.groupby(['Current_Outcome'])['MRN'].count().reset_index()
 print 'depr'
-print depr_clinic_outcome
+# print depr_clinic_outcome
+
+#Run charts
 
 query = 'select * from [MetricFeedback].[dbo].[HistoricalDataForRunCharts]'
 cursor = cnxn.cursor()
@@ -40,111 +40,157 @@ df = pd.DataFrame(x_tuple,columns=[ 'Metric','AssignedClinic','AssignedTeam','As
 df_depression = df[df['Metric'] =='DepressionScreen']
 df_depression['Percent met'] = (df['Met']/(df['Met'] + df['Not Met'])) * 100
 runcharts=df_depression.groupby(['AssignedClinic','AssignedTeam',pd.Grouper(freq='1M', key='Report_Period_End')])['Percent met'].mean().reset_index()
-print runcharts[runcharts['AssignedClinic']=='VG BEAVERTON']
+print runcharts.columns
 
 all_options = {
-    'VG BEAVERTON': list(set(list((runcharts[runcharts['AssignedClinic']=='VG BEAVERTON']['AssignedTeam'])))),
-    'VG SCHOOL BASED': list(set(list(runcharts[runcharts['AssignedClinic']=='VG SCHOOL BASED']['AssignedTeam'])))
+    'VG BEAVERTON': list(set(list((runcharts.loc[runcharts['AssignedClinic']=='VG BEAVERTON','AssignedTeam'])))),
+    'VG SCHOOL BASED': list(set(list(runcharts.loc[runcharts['AssignedClinic']=='VG SCHOOL BASED','AssignedTeam'])))
 }
 
-print(all_options)
-app.layout = html.Div([
-    dcc.Dropdown(
-        id='clinics-dropdown',
-        options=[{'label': k, 'value': k} for k in all_options.keys()],
-        value='VG BEAVERTON',
-        # multi=True
-    ),
 
-    html.Hr(),
+app.layout = html.Div(
+                className = "row",
+                children = [
+                  html.Div(
+                    id="banner",
+                    className="banner",
+                    children=[
+                        html.H6("US Flights"),
+                        html.Img(src=app.get_asset_url("plotly_logo.png")),
+                    ],
+                   ),
+                   
+                   
+                 # html.Div(
+                    # className="pretty_container four columns",
+                    # children = [
+                        # html.Div(
+                            # [
+                                # html.P('Choose Facility:'),
+                                # dcc.Dropdown(
+                                    # id = 'clinic',
+                                    # options=[{'label': k, 'value': k} for k in all_options.keys()],
+                                    # value='VG BEAVERTON',
+                                 # # multi=True
+                                # ),
+                            # ],
+                            # className='selector',
+                            # # style={'margin-top': '10'}
+                        # ),
+                         # html.Div(
+                            # [
+                                # html.P('Choose Facility:'),
+                                # dcc.Dropdown(
+                                    # id = 'clinic1',
+                                    # options=[{'label': k, 'value': k} for k in all_options.keys()],
+                                    # value='VG BEAVERTON',
+                                 # # multi=True
+                                # ),
+                            # ],
+                            # className='selector',
+                            # # style={'margin-top': '10'}
+                        # ),
+                        # ])
+                        
+                         html.Div(
+                            [      html.Div([
+                                dcc.Dropdown(
+                                    id='clinics-dropdown',
+                                    options=[{'label': k, 'value': k} for k in all_options.keys()],
+                                    value='VG BEAVERTON',
+                                    # multi=True
+                                )],className= 'three columns'),
 
-    dcc.RadioItems(id='teams-dropdown'),
+                                # html.Hr(),
+                                html.Div([
+                                dcc.Checklist(id='teams-dropdown',labelStyle={'display': 'inline-block'}
+                                ),],className='eight columns'),
 
-    html.Hr(),
+                                # html.Hr(),
 
-    html.Div(id='display-selected-values'),
+                                # html.Div(id='display-selected-values'),
+                            
+                            # html.Div(
+                            # [
+                                # html.P('Choose Clinic:'),
+                                # dcc.Dropdown(
+                                # id = 'clincs-dropdown',
+                                # options=[{'label': k, 'value': k} for k in all_options.keys()],
+                                # value='VG BEAVERTON',
+                                
+                                # ),
+                            # ],
+                            # className='three columns',
+                            # style={'margin-top': '10'}
+                             # ),
+                             # html.Hr(),
+                            # html.Div(
+                            # [
+                                # html.P('Choose Team:'),
+                                # dcc.RadioItems(
+                                # id = 'teams-dropdown',
+                                # # labelStyle={'display': 'inline-block'}
+                                   # ),
+                                # ],
+                            # className='six columns',
+                            # style={'margin-top': '10'}
+                            # ),
+                            # html.Hr(),
+                            # html.Div(id='display-selected-value'),
+                        ], className="row"
+                        ),
+                        
+                        
+                    html.Div(
+        
+                        id="top-row",
+                        className='row',
+                        children= [
+                        html.Div([
+              
+                            dcc.Graph(
+                            id='aa',
+                            figure = {
+                            'data': [
+                                {
+        
+                                "x": list(depr_clinic_outcome['Current_Outcome']),
+                                "y": list(depr_clinic_outcome['MRN']),
+                                "type": "bar",
+                                }],
+                            'layout': {
+                                'title': 'Overall Depression Screening performance',
+                                'xaxis' : dict(
+                                    title='x Axis',
+                                    titlefont=dict(
+                                    family='Courier New, monospace',
+                                    size=20,
+                                    color='#7f7f7f'
+                                )),
+                                'yaxis' : dict(
+                                    title='y Axis',
+                                    titlefont=dict(
+                                    family='Helvetica, monospace',
+                                    size=20,
+                                    color='#7f7f7f'
+                                    ))
+                                }
+                               }
+                     
+                     
+                            )
+                        ], className='four columns'
+                        ),
+                    html.Div([
+                        dcc.Graph(
+                            id='example-graph-2'
+                        )
+                        ], className= 'eight columns'
+                        ),
+                        ])   
+                       
+                    ])
     
-    html.Div(
-        
-        id="top-row",
-        className='row',
-        children= [
-               html.Div([
-              
-                    dcc.Graph(
-                    id='aa',
-                     figure = {
-        'data': [
-                    {
-        
-        "x": list(depr_clinic_outcome['Current_Outcome']),
-        "y": list(depr_clinic_outcome['MRN']),
-        "type": "bar",
-        }],
-        'layout': {
-            'title': 'Overall Depression Screening performance',
-            'xaxis' : dict(
-                title='x Axis',
-                titlefont=dict(
-                family='Courier New, monospace',
-                size=20,
-                color='#7f7f7f'
-            )),
-            'yaxis' : dict(
-                title='y Axis',
-                titlefont=dict(
-                family='Helvetica, monospace',
-                size=20,
-                color='#7f7f7f'
-            ))
-        }
-    }
-                     
-                     
-                     )
-                ], className='four columns'
-                ),
-                
-             html.Div([
-              
-                    dcc.Graph(
-                    id='abc',
-                     figure = {
-        'data': [
-                    {
-        
-        "x": list(depr_clinic_outcome['Current_Outcome']),
-        "y": list(depr_clinic_outcome['MRN']),
-        "type": "bar",
-        }],
-        'layout': {
-            'title': 'Graph 1',
-            'xaxis' : dict(
-                title='x Axis',
-                titlefont=dict(
-                family='Courier New, monospace',
-                size=20,
-                color='#7f7f7f'
-            )),
-            'yaxis' : dict(
-                title='y Axis',
-                titlefont=dict(
-                family='Helvetica, monospace',
-                size=20,
-                color='#7f7f7f'
-            ))
-        }
-    }
-                     
-                     
-                     )
-                ], className='four columns'
-                ),
-                
-                ])
-])
-
-
 @app.callback(
     dash.dependencies.Output('teams-dropdown', 'options'),
     [dash.dependencies.Input('clinics-dropdown', 'value')])
@@ -161,17 +207,50 @@ def set_cities_options(selected_clinic):
     dash.dependencies.Output('teams-dropdown', 'value'),
     [dash.dependencies.Input('teams-dropdown', 'options')])
 def set_cities_value(available_options):
-    return available_options[0]['value']
+    a=[]
+    z=0
+    for i in available_options:
+        b=available_options[z]['value']
+        z=z+1
+        a.append(b)
+    print(a)
+    return a
+    # print list(available_options[0]['value'])
+    # return list(available_options[0]['value'])
+    
     
 @app.callback(
-    dash.dependencies.Output('display-selected-values', 'children'),
-    [dash.dependencies.Input('clinics-dropdown', 'value'),
-     dash.dependencies.Input('teams-dropdown', 'value')])
-def set_display_children(selected_clinic, selected_team):
-    return u'{} is a city in {}'.format(
-        selected_team, selected_clinic,
-    )
+    dash.dependencies.Output('example-graph-2', 'figure'),
+    [dash.dependencies.Input('teams-dropdown', 'value')])
+def update_image_src(selector):
+    data = []
+    for i in selector:
+        print i
+        data.append({'x': list(runcharts.loc[runcharts['AssignedTeam']==i,'Report_Period_End']), 
+                     'y': list(runcharts.loc[runcharts['AssignedTeam']==i,'Percent met']),
+                    'type': 'line', 'name': i})
+    print data
+    figure = {
+        'data': data,
+        'layout': {
+            'title': 'Graph 2',
+            'xaxis' : dict(
+                title='x Axis',
+                titlefont=dict(
+                family='Courier New, monospace',
+                size=20,
+                color='#7f7f7f'
+            )),
+            'yaxis' : dict(
+                title='y Axis',
+                titlefont=dict(
+                family='Helvetica, monospace',
+                size=20,
+                color='#7f7f7f'
+            ))
+        }
+    }
+    return figure
 
 if __name__ == '__main__':
     app.run_server(debug=True)
-    
