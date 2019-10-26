@@ -2,18 +2,25 @@ import dash
 from dash.dependencies import Input, Output
 import dash_core_components as dcc
 import dash_html_components as html
+import dash_table 
 import pyodbc
 cnxn = pyodbc.connect(r'Driver={SQL Server};Server=VG00-2001;Database=Panel;Trusted_Connection=yes;')
 import pandas as pd
 import numpy as np
-    
+
+
+
 #app details
 app = dash.Dash(__name__, meta_tags=[{"name": "viewport", "content": "width=device-width, initial-scale=1"}],)
 app.css.config.serve_locally = False
-
+app.config.suppress_callback_exceptions = True
+# app.css.config.serve_locally = True
+# app.scripts.config.serve_locally = True
 app.css.append_css({'external_url': 'https://cdn.rawgit.com/plotly/dash-app-stylesheets/2d266c578d2a6e8850ebce48fdb52759b2aef506/stylesheet-oil-and-gas.css'})
 # app.css.append_css({'external_url': 'https://codepen.io/amyoshino/pen/jzXypZ.css'})
-app.config.suppress_callback_exceptions = True
+# app.config.suppress_callback_exceptions = True
+
+
 # SQL query
 
 # overall performance
@@ -23,10 +30,12 @@ resultValue = cursor.execute(query)
 pat_details = cursor.fetchall()
 x=list(pat_details)
 x_tuple=[tuple(zz) for zz in x]
-df = pd.DataFrame(x_tuple,columns=[' Metric', 'UniqueID', 'MRN', 'MEDICAID_ID', 'PAT_NAME', 'AssignedClinic', 'AssignedTeam', 'AssignedPCP', 'BIRTH_DATE', 'Sex', 'Current_Outcome', 'Projected_EOY_Outcome', 'ScreeningDate', 'VG_Panel', 'CobiCCOAssignment', 'Numerator', 'Exclusion', 'PHQ', 'Score', 'LastPositivePHQ', 'AssessmentOutcome', 'Criteria', 'VisitPCP', 'VisitTeam', 'Visit_Count', 'LastVisitDate', 'VisitApptNotes', 'InLastWeek', 'NextApptDate', 'NextApptProvider', 'NextApptNotes', 'PCPAssignedDate', 'PCPAssignedWindow', 'Report_Period_Begin', 'Report_Period_End', 'SBC_Name', 'epicCCOinfo', 'COfilter', 'PCPM', 'Depression_SmartPhrase_Used', 'MUUDS_SmartPhrase_Used', 'InLastMonth'])
-depr_clinic_outcome=df.groupby(['Current_Outcome'])['MRN'].count().reset_index()
+df_depr_clinic = pd.DataFrame(x_tuple,columns=['Metric', 'UniqueID', 'MRN', 'MEDICAID_ID', 'PAT_NAME', 'BIRTH_DATE', 'Sex', 'AssignedClinic', 'AssignedTeam', 'AssignedPCP', 'Current_Outcome', 'Projected_EOY_Outcome', 'ScreeningDate', 'PHQ', 'Score', 'LastPositivePHQ', 'AssessmentOutcome', 'Depression_SmartPhrase_Used', 'MUUDS_SmartPhrase_Used', 'Numerator', 'Exclusion', 'Criteria', 'VisitPCP', 'VisitTeam', 'Visit_Count', 'LastVisitDate', 'VisitApptNotes', 'InLastWeek', 'NextApptDate', 'NextApptProvider', 'NextApptNotes', 'PCPAssignedDate', 'PCPAssignedWindow', 'VG_Panel', 'CobiCCOAssignment', 'Report_Period_Begin', 'Report_Period_End', 'SBC_Name', 'epicCCOinfo', 'CCOfilter', 'PCPM', 'InLastMonth'])
+print df_depr_clinic.head(5)
+depr_clinic_outcome=df_depr_clinic.groupby(['Current_Outcome'])['MRN'].count().reset_index()
+depr_clinic_outcome_clin=df_depr_clinic.groupby(['Current_Outcome','AssignedClinic'])['MRN'].count().reset_index()
 print 'depr'
-# print depr_clinic_outcome
+print depr_clinic_outcome_clin
 
 #Run charts
 
@@ -44,7 +53,14 @@ print runcharts.columns
 
 all_options = {
     'VG BEAVERTON': list(set(list((runcharts.loc[runcharts['AssignedClinic']=='VG BEAVERTON','AssignedTeam'])))),
-    'VG SCHOOL BASED': list(set(list(runcharts.loc[runcharts['AssignedClinic']=='VG SCHOOL BASED','AssignedTeam'])))
+    'VG SCHOOL BASED': list(set(list(runcharts.loc[runcharts['AssignedClinic']=='VG SCHOOL BASED','AssignedTeam']))),
+    'VG CORNELIUS': list(set(list(runcharts.loc[runcharts['AssignedClinic']=='VG CORNELIUS','AssignedTeam']))),
+    'VG HILLSBORO': list(set(list(runcharts.loc[runcharts['AssignedClinic']=='VG HILLSBORO','AssignedTeam']))),
+    'VG MCMINNVILLE': list(set(list(runcharts.loc[runcharts['AssignedClinic']=='VG MCMINNVILLE','AssignedTeam']))),
+    'VG MENTAL HEALTH': list(set(list(runcharts.loc[runcharts['AssignedClinic']=='VG MENTAL HEALTH','AssignedTeam']))),
+    'VG MOBILE': list(set(list(runcharts.loc[runcharts['AssignedClinic']=='VG MOBILE','AssignedTeam']))),
+    'VG NEWBERG': list(set(list(runcharts.loc[runcharts['AssignedClinic']=='VG NEWBERG','AssignedTeam']))),
+    'VG WOMENS CLINIC': list(set(list(runcharts.loc[runcharts['AssignedClinic']=='VG WOMENS CLINIC','AssignedTeam']))),
 }
 
 
@@ -55,42 +71,22 @@ app.layout = html.Div(
                     id="banner",
                     className="banner",
                     children=[
-                        html.H6("US Flights"),
-                        html.Img(src=app.get_asset_url("plotly_logo.png")),
-                    ],
-                   ),
+                        html.H6("Depression Metric"),
+                        # html.Img(
+                                # src="data:image/png;base64,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",
+                                # className='six columns',
+                                # style={
+                                    # 'height': '9%',
+                                    # 'width': '12%',
+                                    # 'float': 'right',
+                                    # 'position': 'relative',
+                                    # 'padding-top': 0,
+                                    # 'padding-right': 0
+                                        # },
+                                    # ),
+                                    ],
+                            ),
                    
-                   
-                 # html.Div(
-                    # className="pretty_container four columns",
-                    # children = [
-                        # html.Div(
-                            # [
-                                # html.P('Choose Facility:'),
-                                # dcc.Dropdown(
-                                    # id = 'clinic',
-                                    # options=[{'label': k, 'value': k} for k in all_options.keys()],
-                                    # value='VG BEAVERTON',
-                                 # # multi=True
-                                # ),
-                            # ],
-                            # className='selector',
-                            # # style={'margin-top': '10'}
-                        # ),
-                         # html.Div(
-                            # [
-                                # html.P('Choose Facility:'),
-                                # dcc.Dropdown(
-                                    # id = 'clinic1',
-                                    # options=[{'label': k, 'value': k} for k in all_options.keys()],
-                                    # value='VG BEAVERTON',
-                                 # # multi=True
-                                # ),
-                            # ],
-                            # className='selector',
-                            # # style={'margin-top': '10'}
-                        # ),
-                        # ])
                         
                          html.Div(
                             [      html.Div([
@@ -106,37 +102,6 @@ app.layout = html.Div(
                                 dcc.Checklist(id='teams-dropdown',labelStyle={'display': 'inline-block'}
                                 ),],className='eight columns'),
 
-                                # html.Hr(),
-
-                                # html.Div(id='display-selected-values'),
-                            
-                            # html.Div(
-                            # [
-                                # html.P('Choose Clinic:'),
-                                # dcc.Dropdown(
-                                # id = 'clincs-dropdown',
-                                # options=[{'label': k, 'value': k} for k in all_options.keys()],
-                                # value='VG BEAVERTON',
-                                
-                                # ),
-                            # ],
-                            # className='three columns',
-                            # style={'margin-top': '10'}
-                             # ),
-                             # html.Hr(),
-                            # html.Div(
-                            # [
-                                # html.P('Choose Team:'),
-                                # dcc.RadioItems(
-                                # id = 'teams-dropdown',
-                                # # labelStyle={'display': 'inline-block'}
-                                   # ),
-                                # ],
-                            # className='six columns',
-                            # style={'margin-top': '10'}
-                            # ),
-                            # html.Hr(),
-                            # html.Div(id='display-selected-value'),
                         ], className="row"
                         ),
                         
@@ -156,25 +121,43 @@ app.layout = html.Div(
         
                                 "x": list(depr_clinic_outcome['Current_Outcome']),
                                 "y": list(depr_clinic_outcome['MRN']),
-                                "type": "bar",
-                                }],
-                            'layout': {
-                                'title': 'Overall Depression Screening performance',
-                                'xaxis' : dict(
-                                    title='x Axis',
-                                    titlefont=dict(
-                                    family='Courier New, monospace',
-                                    size=20,
-                                    color='#7f7f7f'
-                                )),
-                                'yaxis' : dict(
-                                    title='y Axis',
-                                    titlefont=dict(
-                                    family='Helvetica, monospace',
-                                    size=20,
-                                    color='#7f7f7f'
-                                    ))
-                                }
+                                "type": "bar",'name': 'bar'
+                                },
+                                {"x":list(depr_clinic_outcome['Current_Outcome']),
+                                "y0":13000,
+                                "y1":15000,
+                                "type": "line",'name': 'target'},
+
+                                ],
+                           
+                            # 'layout': {
+                                # 'title': 'Overall Depression Screening performance',
+                                # 'xaxis' : dict(
+                                    # title='x Axis',
+                                    # titlefont=dict(
+                                    # family='Courier New, monospace',
+                                    # size=20,
+                                    # color='#7f7f7f'
+                                # )),
+                                # 'yaxis' : dict(
+                                    # title='y Axis',
+                                    # titlefont=dict(
+                                    # family='Helvetica, monospace',
+                                    # size=20,
+                                    # color='#7f7f7f'
+                                    # )),
+
+                                # }
+                                
+                                                'layout' : dict(
+                                                        title=dict(
+                                                            text='Overall Depression Screening performance',
+                                                            font=dict(family="Open Sans, sans-serif", size=15, color="#515151"),
+                                                        ),
+                                                        font=dict(family="Open Sans, sans-serif", size=13),
+                                                        automargin=True,
+                                                    )
+
                                }
                      
                      
@@ -187,7 +170,45 @@ app.layout = html.Div(
                         )
                         ], className= 'eight columns'
                         ),
-                        ])   
+                        ]),
+
+
+
+                    html.Div(
+        
+                        id="second-row",
+                        className='row',
+                        children= [
+                        html.Div([
+              
+                            dcc.Graph(
+                            id='aa-2',
+                                          
+                     
+                            )
+                        ], className='four columns'
+                        ),
+                        html.Div([
+                            dash_table.DataTable(
+                                id='data_table1',
+                                # data = df_depr_clinic.to_dict('records'),
+                                columns= [{'id':c, 'name':c} for c in df_depr_clinic.columns],
+                                fixed_rows={'headers':True,'data':0},
+                                # # fixed_columns={ 'headers': True, 'data': 3 },
+                                style_cell={'width':'120px'}
+                            )
+                        ],className='eight columns'
+                        ),
+                         
+                         
+                         html.A(
+                                'Download Data',
+                                id='download-link',
+                                download="rawdata.csv",
+                                href="",
+                                target="_blank"
+                            )
+                        ])
                        
                     ])
     
@@ -195,11 +216,6 @@ app.layout = html.Div(
     dash.dependencies.Output('teams-dropdown', 'options'),
     [dash.dependencies.Input('clinics-dropdown', 'value')])
 def set_cities_options(selected_clinic):
-    # a=[]
-    # for i in all_options[selected_clinic]:
-        # print i
-        # a.append({'label': i, 'value': i})
-    # return a
     
     return [{'label': i, 'value': i} for i in all_options[selected_clinic]]
 
@@ -233,7 +249,39 @@ def update_image_src(selector):
     figure = {
         'data': data,
         'layout': {
-            'title': 'Graph 2',
+            'title': 'RunCharts',
+            # 'xaxis' : dict(
+                # title='x Axis',
+                # titlefont=dict(
+                # family='Courier New, monospace',
+                # size=20,
+                # color='#7f7f7f'
+            # )),
+            # 'yaxis' : dict(
+                # title='y Axis',
+                # titlefont=dict(
+                # family='Helvetica, monospace',
+                # size=20,
+                # color='#7f7f7f'
+            # ))
+        }
+    }
+    return figure
+    
+@app.callback(
+    dash.dependencies.Output('aa-2', 'figure'),
+    [dash.dependencies.Input('clinics-dropdown', 'value')])
+def update_image_src(selector):
+    data = [{ "x": list(depr_clinic_outcome_clin.loc[depr_clinic_outcome_clin['AssignedClinic']==selector]['Current_Outcome']),
+                                "y": list(depr_clinic_outcome_clin.loc[depr_clinic_outcome_clin['AssignedClinic']==selector]['MRN']),
+                    'type': 'bar', 'name': selector}]
+    print selector
+
+    print data
+    figure = {
+        'data': data,
+        'layout': {
+            'title': selector,
             'xaxis' : dict(
                 title='x Axis',
                 titlefont=dict(
@@ -251,6 +299,17 @@ def update_image_src(selector):
         }
     }
     return figure
+
+
+@app.callback(
+    dash.dependencies.Output('data_table1', 'data'),
+    [dash.dependencies.Input('clinics-dropdown', 'value')])
+def update_image_src(selector):
+    data = df_depr_clinic[df_depr_clinic['AssignedClinic']==selector].to_dict('records')
+    print selector
+
+    print data[:5]
+    return data
 
 if __name__ == '__main__':
     app.run_server(debug=True)
